@@ -8,6 +8,7 @@ import { z } from "zod";
 import multer from "multer";
 import path from "path";
 import { mkdir } from "fs/promises";
+import OpenAI from "openai";
 
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), "uploads");
@@ -738,7 +739,7 @@ export function registerRoutes(app: Express): Server {
         return res.json([]);
       }
 
-      const users = await storage.searchUsers(query.trim());
+      const users = await storage.searchUsers(query.trim(), req.user!.id);
       res.json(users);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -1553,6 +1554,154 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Failed to get cricket coaching history:", error);
       res.status(500).json({ message: "Failed to get history" });
+    }
+  });
+
+  // Initialize OpenAI
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+
+  // AI Chat endpoint
+  app.post("/api/ai-chat", async (req, res) => {
+    let message = '';
+    try {
+      const messageFromBody = req.body.message;
+      
+      if (!messageFromBody || typeof messageFromBody !== 'string') {
+        return res.status(400).json({ error: 'Message is required' });
+      }
+
+      message = messageFromBody;
+      const userMessage = message.toLowerCase().trim();
+
+      // Handle basic greetings locally
+      const greetings = ['hi', 'hello', 'hey', 'hii', 'helo', 'hai'];
+      if (greetings.some(greeting => userMessage === greeting || userMessage.startsWith(greeting + ' ') || userMessage.startsWith(greeting + ','))) {
+        return res.json({ 
+          reply: "Hey! How can I help you? Please ask me anything related to sports or SportsApp features!" 
+        });
+      }
+
+      // Handle SportsApp features questions locally
+      if (userMessage.includes('feature') && (userMessage.includes('sportsapp') || userMessage.includes('app'))) {
+        return res.json({ 
+          reply: "SportsApp has amazing features! You can:\n\n🏏 Post updates, photos, and videos in the Feed\n🎯 Upload and practice sports drills\n💬 Chat with other sports enthusiasts\n🏆 Participate in tryouts and competitions\n📰 Read the latest sports news\n🎾 Get AI-powered cricket coaching with video analysis\n🏅 Earn and redeem points for rewards\n👤 Create your sports profile and connect with others\n\nWhat would you like to know more about?" 
+        });
+      }
+
+      // For complex sports questions, try OpenAI API
+      // System prompt to ensure sports/SportsApp related responses only
+      const systemPrompt = `You are an AI assistant for a website called SportsApp. Only answer questions that are related to sports (such as rules, players, matches, techniques, training, news, or general sports knowledge) or questions related to the features and usage of the SportsApp platform (like creating posts, profiles, tryouts, drills, cricket coaching, messaging, etc.). 
+
+If the user asks anything unrelated to sports or SportsApp, politely reply: "Please ask a question related to sports or SportsApp."
+
+Be helpful, friendly, and concise. Keep responses under 200 words when possible.`;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: message }
+        ],
+        max_tokens: 300,
+        temperature: 0.7,
+      });
+
+      const aiReply = response.choices[0].message.content || "Sorry, I couldn't generate a response.";
+      
+      res.json({ reply: aiReply });
+    } catch (error: any) {
+      console.error('AI Chat error:', error);
+      
+      // Provide helpful local responses when OpenAI is unavailable
+      const userMessage = (message || '').toLowerCase().trim();
+      
+      // Handle sports-related questions locally when API is down
+      if (userMessage.includes('cricket')) {
+        return res.json({ 
+          reply: "Cricket is a fantastic sport! SportsApp has a special Cricket Coaching feature where you can upload videos of your batting or bowling technique and get AI-powered analysis and feedback. You can also find cricket drills and connect with other cricket enthusiasts in our community!" 
+        });
+      }
+      
+      if (userMessage.includes('football') || userMessage.includes('soccer')) {
+        return res.json({ 
+          reply: "Football is the world's most popular sport! On SportsApp, you can share your football moments, find training drills, connect with other players, and stay updated with the latest football news. Check out our Drills section for football-specific training exercises!" 
+        });
+      }
+      
+      if (userMessage.includes('basketball')) {
+        return res.json({ 
+          reply: "Basketball is an exciting sport! SportsApp lets you share your basketball highlights, find training drills, connect with other players, and participate in basketball discussions. Visit our Feed to see what other basketball enthusiasts are sharing!" 
+        });
+      }
+      
+      if (userMessage.includes('tryout') || userMessage.includes('apply') || userMessage.includes('competition')) {
+        return res.json({ 
+          reply: "Great question! You can apply for tryouts in SportsApp by going to the Tryouts section. Upload your sports videos, fill out your application, and showcase your skills! Our admin team reviews all applications and you'll get notified about your status. Good luck with your tryout application!" 
+        });
+      }
+      
+      if (userMessage.includes('drill') || userMessage.includes('training') || userMessage.includes('practice')) {
+        return res.json({ 
+          reply: "SportsApp has an amazing drill system! You can upload your own training videos, practice existing drills from other athletes, and earn points for approved submissions. We support 7 different sports categories. Visit the Drills section to start improving your skills!" 
+        });
+      }
+      
+      if (userMessage.includes('message') || userMessage.includes('chat') || userMessage.includes('talk')) {
+        return res.json({ 
+          reply: "Stay connected with SportsApp's real-time messaging! You can chat with other athletes, share tips, and build your sports network. Click the message icon in the top navigation to start conversations with fellow sports enthusiasts!" 
+        });
+      }
+      
+      if (userMessage.includes('news') || userMessage.includes('updates') || userMessage.includes('latest')) {
+        return res.json({ 
+          reply: "Stay updated with the latest sports news on SportsApp! Our news section covers global sports with special focus on Indian sports. Get real-time updates, match results, and breaking sports stories all in one place!" 
+        });
+      }
+      
+      if (userMessage.includes('coach') || userMessage.includes('analysis') || userMessage.includes('technique')) {
+        return res.json({ 
+          reply: "SportsApp's Cricket Coaching feature uses AI-powered pose detection to analyze your batting and bowling techniques! Upload your cricket videos and get detailed feedback on your form, stance, and technique. It's like having a personal coach!" 
+        });
+      }
+      
+      if (userMessage.includes('points') || userMessage.includes('reward') || userMessage.includes('redeem')) {
+        return res.json({ 
+          reply: "Earn points on SportsApp by posting content, uploading approved drills, and engaging with the community! You can redeem your points for rewards through our redemption system. Check your profile to see your current points balance!" 
+        });
+      }
+      
+      if (userMessage.includes('sport') || userMessage.includes('game') || userMessage.includes('play')) {
+        return res.json({ 
+          reply: "Sports are amazing! SportsApp is your ultimate sports companion where you can share your sports journey, learn new techniques through our drill system, get cricket coaching, chat with fellow athletes, and stay updated with sports news. What sport are you passionate about?" 
+        });
+      }
+      
+      // Handle non-sports questions with a polite redirect
+      if (!userMessage.includes('sport') && !userMessage.includes('game') && 
+          !userMessage.includes('cricket') && !userMessage.includes('football') && 
+          !userMessage.includes('basketball') && !userMessage.includes('feature') && 
+          !userMessage.includes('app') && !userMessage.includes('drill') && 
+          !userMessage.includes('coach') && !userMessage.includes('news') && 
+          !userMessage.includes('tryout') && !userMessage.includes('message') && 
+          !userMessage.includes('chat') && !userMessage.includes('post') &&
+          !userMessage.includes('apply') && !userMessage.includes('competition') &&
+          !userMessage.includes('training') && !userMessage.includes('practice') &&
+          !userMessage.includes('talk') && !userMessage.includes('updates') &&
+          !userMessage.includes('latest') && !userMessage.includes('analysis') &&
+          !userMessage.includes('technique') && !userMessage.includes('points') &&
+          !userMessage.includes('reward') && !userMessage.includes('redeem') &&
+          !userMessage.includes('play')) {
+        return res.json({ 
+          reply: "Please ask a question related to sports or SportsApp features. I'm here to help with anything about sports, training, or using SportsApp!" 
+        });
+      }
+      
+      // Generic fallback for sports-related questions when OpenAI is unavailable
+      return res.json({ 
+        reply: "I'm having trouble accessing advanced AI features right now, but I can still help! SportsApp offers many great features like posting updates, practicing drills, cricket coaching, sports news, messaging, and more. What would you like to explore?" 
+      });
     }
   });
 

@@ -14,6 +14,7 @@ import { AlertCircle, CheckCircle2, Loader2, Trophy, Target, Zap, Upload, Users,
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ScreenshotCarousel } from "@/components/screenshot-carousel";
 
 export default function AuthPage() {
   const [, setLocation] = useLocation();
@@ -22,7 +23,7 @@ export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(false);
   const isMobile = useIsMobile();
   const [acceptTerms, setAcceptTerms] = useState(false);
-  const [usernameCheck, setUsernameCheck] = useState<{ available: boolean; suggestions?: string[] } | null>(null);
+  const [usernameCheck, setUsernameCheck] = useState<{ available: boolean; suggestions?: string[]; error?: string } | null>(null);
   const [emailCheck, setEmailCheck] = useState<{ available: boolean } | null>(null);
   const [phoneCheck, setPhoneCheck] = useState<{ available: boolean } | null>(null);
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
@@ -58,9 +59,57 @@ export default function AuthPage() {
     }
   }, [user, setLocation]);
 
+  // Validate username format with specific error messages
+  const validateUsernameFormat = (username: string) => {
+    if (username.length === 0) return null;
+    
+    // Check if starts with letter
+    if (!/^[a-zA-Z]/.test(username)) {
+      return "Username must start with a letter";
+    }
+    
+    // Check for consecutive dots
+    if (/\.\./.test(username)) {
+      return "Username cannot have consecutive dots";
+    }
+    
+    // Check if ends with dot
+    if (/\.$/.test(username)) {
+      return "Username cannot end with a dot";
+    }
+    
+    // Check for invalid characters - allow letters, numbers, underscores, dots
+    if (!/^[a-zA-Z][a-zA-Z0-9_.]*$/.test(username)) {
+      return "Username can only contain letters, numbers, underscores, and dots";
+    }
+    
+    // Check the more complex pattern rules
+    // Must not have dot followed by nothing or dot at very end (already checked above)
+    // Must not have consecutive dots (already checked above)
+    // This leaves us with a valid username that follows our rules
+    
+    // Check length
+    if (username.length < 3) {
+      return "Username must be at least 3 characters long";
+    }
+    
+    if (username.length > 20) {
+      return "Username cannot exceed 20 characters";
+    }
+    
+    return null;
+  };
+
   // Real-time username validation
   const checkUsername = async (username: string) => {
     if (username.length < 3) return;
+    
+    // First check format
+    const formatError = validateUsernameFormat(username);
+    if (formatError) {
+      setUsernameCheck({ available: false, error: formatError });
+      return;
+    }
     
     setIsCheckingUsername(true);
     try {
@@ -155,7 +204,7 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="auth-page min-h-screen bg-gradient-to-br from-blue-500 via-purple-600 to-red-500 relative overflow-hidden">
+    <div className="auth-page min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-green-800 relative overflow-hidden">
       {/* Animated Sports Background Elements */}
       <div className="absolute inset-0 bg-black bg-opacity-20"></div>
       
@@ -175,24 +224,54 @@ export default function AuthPage() {
       {isMobile ? (
         /* Mobile Layout */
         <div className="relative z-10 min-h-screen flex flex-col">
-          {/* Mobile Header with Welcome Text */}
-          <div className="pt-8 pb-6 px-6 text-center">
-            <h1 className="text-4xl font-bold text-white mb-4" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
-              <span className="text-white">SPORTS</span>
-              <span className="text-yellow-300">APP</span>
-            </h1>
-            <h2 className="text-2xl font-bold text-white mb-2">
-              {isLogin ? "Welcome Back!" : "Welcome to SportsApp"}
-            </h2>
-            <p className="text-blue-100">
-              {isLogin ? "Ready to dive back into sports?" : "Connect with athletes and fans worldwide"}
-            </p>
-          </div>
+          {/* Mobile Header - Simplified */}
+          {!isLogin && (
+            <div className="pt-12 pb-4 px-6 text-center">
+              <h1 className="text-3xl font-bold text-white mb-12" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+                What's Inside SportsApp
+              </h1>
+            </div>
+          )}
+
+          {/* Login Header */}
+          {isLogin && (
+            <div className="pt-8 pb-6 px-6 text-center">
+              <h1 className="text-4xl font-bold text-white mb-4" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+                <span className="text-white">SPORTS</span>
+                <span className="text-yellow-300">APP</span>
+              </h1>
+              <h2 className="text-2xl font-bold text-white mb-2">Welcome Back!</h2>
+              <p className="text-blue-100">Ready to dive back into sports?</p>
+            </div>
+          )}
+
+          {/* Mobile Screenshot Carousel */}
+          {!isLogin && (
+            <div className="px-6 mb-4 -mt-4">
+              <ScreenshotCarousel />
+            </div>
+          )}
+
+          {/* Signup Text - Directly below carousel */}
+          {!isLogin && (
+            <div className="px-6 mb-4 text-center">
+              <h2 className="text-2xl font-bold text-white mb-3">Signup to SportsApp</h2>
+            </div>
+          )}
+
+          {/* Description - Below signup text */}
+          {!isLogin && (
+            <div className="px-6 mb-6 text-center">
+              <p className="text-blue-100 text-base leading-relaxed">
+                Join the ultimate sports community where athletes and fans connect, share, and grow together
+              </p>
+            </div>
+          )}
 
           {/* Mobile Form */}
-          <div className="flex-1 px-6">
+          <div className="flex-1 px-6 pb-8">
             <Card className="shadow-2xl bg-white/95 backdrop-blur-sm border-0">
-              <CardContent className="p-6">
+              <CardContent className="p-8">
                 {isLogin ? (
                   /* Login Form */
                   <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
@@ -232,7 +311,7 @@ export default function AuthPage() {
 
                 <Button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 mt-4"
+                  className="w-full bg-gradient-to-br from-slate-900 via-blue-900 to-green-800 hover:from-slate-800 hover:via-blue-800 hover:to-green-700 text-white font-semibold py-3 mt-4"
                   disabled={loginMutation.isPending}
                 >
                   {loginMutation.isPending ? (
@@ -285,8 +364,15 @@ export default function AuthPage() {
                     {...signupForm.register("username", {
                       onChange: (e) => {
                         const value = e.target.value;
-                        if (value.length >= 3) {
-                          checkUsername(value);
+                        if (value.length > 0) {
+                          const formatError = validateUsernameFormat(value);
+                          if (formatError) {
+                            setUsernameCheck({ available: false, error: formatError });
+                          } else if (value.length >= 3) {
+                            checkUsername(value);
+                          } else {
+                            setUsernameCheck(null);
+                          }
                         } else {
                           setUsernameCheck(null);
                         }
@@ -309,9 +395,9 @@ export default function AuthPage() {
                     <div className="mt-2">
                       <div className="text-sm text-red-600 flex items-center">
                         <AlertCircle className="mr-1 h-4 w-4" />
-                        Username already taken
+                        {usernameCheck.error || "Username already taken"}
                       </div>
-                      {usernameCheck.suggestions && usernameCheck.suggestions.length > 0 && (
+                      {!usernameCheck.error && usernameCheck.suggestions && usernameCheck.suggestions.length > 0 && (
                         <div className="text-sm text-gray-600 mt-1">
                           Suggestions:{" "}
                           {usernameCheck.suggestions.map((suggestion, index) => (
@@ -505,7 +591,7 @@ export default function AuthPage() {
 
                 <Button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3"
+                  className="w-full bg-gradient-to-br from-slate-900 via-blue-900 to-green-800 hover:from-slate-800 hover:via-blue-800 hover:to-green-700 text-white font-semibold py-3"
                   disabled={registerMutation.isPending || !acceptTerms}
                 >
                   {registerMutation.isPending ? (
@@ -541,19 +627,19 @@ export default function AuthPage() {
           <div className="px-6 pb-8">
             <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 text-center">
               <div className="grid grid-cols-2 gap-3 mb-3">
-                <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-xl p-3 text-white">
+                <div className="bg-gradient-to-br from-slate-900 via-blue-900 to-green-800 rounded-xl p-3 text-white">
                   <Upload className="h-6 w-6 mx-auto mb-1" />
                   <p className="text-xs font-semibold">Upload Talent</p>
                 </div>
-                <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl p-3 text-white">
+                <div className="bg-gradient-to-br from-slate-900 via-blue-900 to-green-800 rounded-xl p-3 text-white">
                   <Users className="h-6 w-6 mx-auto mb-1" />
                   <p className="text-xs font-semibold">Apply Tryouts</p>
                 </div>
-                <div className="bg-gradient-to-br from-green-500 to-teal-600 rounded-xl p-3 text-white">
+                <div className="bg-gradient-to-br from-slate-900 via-blue-900 to-green-800 rounded-xl p-3 text-white">
                   <PlayCircle className="h-6 w-6 mx-auto mb-1" />
                   <p className="text-xs font-semibold">Drill Videos</p>
                 </div>
-                <div className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl p-3 text-white">
+                <div className="bg-gradient-to-br from-slate-900 via-blue-900 to-green-800 rounded-xl p-3 text-white">
                   <Newspaper className="h-6 w-6 mx-auto mb-1" />
                   <p className="text-xs font-semibold">Sports News</p>
                 </div>
@@ -561,7 +647,7 @@ export default function AuthPage() {
               
               {/* Points to Money Card - Mobile Full Width */}
               <div className="mb-4">
-                <div className="bg-gradient-to-r from-orange-400 via-pink-500 to-red-500 rounded-xl p-4 text-white">
+                <div className="bg-gradient-to-br from-slate-900 via-blue-900 to-green-800 rounded-xl p-4 text-white">
                   <div className="flex items-center justify-center mb-2">
                     <Coins className="h-8 w-8" />
                   </div>
@@ -580,41 +666,62 @@ export default function AuthPage() {
           {/* Left Side - Welcome and Sports Visuals */}
           <div className="flex-1 flex flex-col justify-center items-center px-12 py-8">
             <div className="max-w-lg text-center">
-              <h1 className="text-5xl font-bold text-white mb-4" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
-                {isLogin ? "Welcome Back" : "Welcome to"}
-              </h1>
-              <h2 className="text-6xl font-bold mb-8" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
-                <span className="text-white">SPORTS</span>
-                <span className="text-yellow-300">APP</span>
-              </h2>
-              
-              {/* Sports Action Cards */}
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl p-5 text-white transform hover:scale-105 transition-all duration-300 hover:shadow-2xl">
-                  <Upload className="h-10 w-10 mx-auto mb-3" />
-                  <h3 className="font-bold text-base mb-1">Upload Talent</h3>
-                  <p className="text-xs opacity-90">Showcase your skills</p>
+              {!isLogin && (
+                <div>
+                  <h1 className="text-4xl font-bold text-white mb-8" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+                    What's Inside SportsApp
+                  </h1>
+                  
+                  {/* Desktop Screenshot Carousel */}
+                  <div className="mb-6">
+                    <ScreenshotCarousel />
+                  </div>
+
+                  {/* Empty space for desktop - signup text moved to form area */}
                 </div>
-                <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl p-5 text-white transform hover:scale-105 transition-all duration-300 hover:shadow-2xl">
-                  <Users className="h-10 w-10 mx-auto mb-3" />
-                  <h3 className="font-bold text-base mb-1">Apply Tryouts</h3>
-                  <p className="text-xs opacity-90">Join competitions</p>
+              )}
+
+              {isLogin && (
+                <div>
+                  <h1 className="text-5xl font-bold text-white mb-4" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+                    Welcome Back
+                  </h1>
+                  <h2 className="text-6xl font-bold mb-8" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+                    <span className="text-white">SPORTS</span>
+                    <span className="text-yellow-300">APP</span>
+                  </h2>
                 </div>
-                <div className="bg-gradient-to-br from-green-500 to-teal-600 rounded-2xl p-5 text-white transform hover:scale-105 transition-all duration-300 hover:shadow-2xl">
-                  <PlayCircle className="h-10 w-10 mx-auto mb-3" />
-                  <h3 className="font-bold text-base mb-1">Drill Videos</h3>
-                  <p className="text-xs opacity-90">Enhance your skills</p>
+              )}
+
+              {/* Sports Action Cards - Show only for login */}
+              {isLogin && (
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="bg-gradient-to-br from-slate-900 via-blue-900 to-green-800 rounded-2xl p-5 text-white transform hover:scale-105 transition-all duration-300 hover:shadow-2xl">
+                    <Upload className="h-10 w-10 mx-auto mb-3" />
+                    <h3 className="font-bold text-base mb-1">Upload Talent</h3>
+                    <p className="text-xs opacity-90">Showcase your skills</p>
+                  </div>
+                  <div className="bg-gradient-to-br from-slate-900 via-blue-900 to-green-800 rounded-2xl p-5 text-white transform hover:scale-105 transition-all duration-300 hover:shadow-2xl">
+                    <Users className="h-10 w-10 mx-auto mb-3" />
+                    <h3 className="font-bold text-base mb-1">Apply Tryouts</h3>
+                    <p className="text-xs opacity-90">Join competitions</p>
+                  </div>
+                  <div className="bg-gradient-to-br from-slate-900 via-blue-900 to-green-800 rounded-2xl p-5 text-white transform hover:scale-105 transition-all duration-300 hover:shadow-2xl">
+                    <PlayCircle className="h-10 w-10 mx-auto mb-3" />
+                    <h3 className="font-bold text-base mb-1">Drill Videos</h3>
+                    <p className="text-xs opacity-90">Enhance your skills</p>
+                  </div>
+                  <div className="bg-gradient-to-br from-slate-900 via-blue-900 to-green-800 rounded-2xl p-5 text-white transform hover:scale-105 transition-all duration-300 hover:shadow-2xl">
+                    <Newspaper className="h-10 w-10 mx-auto mb-3" />
+                    <h3 className="font-bold text-base mb-1">Sports News</h3>
+                    <p className="text-xs opacity-90">Stay updated</p>
+                  </div>
                 </div>
-                <div className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl p-5 text-white transform hover:scale-105 transition-all duration-300 hover:shadow-2xl">
-                  <Newspaper className="h-10 w-10 mx-auto mb-3" />
-                  <h3 className="font-bold text-base mb-1">Sports News</h3>
-                  <p className="text-xs opacity-90">Stay updated</p>
-                </div>
-              </div>
+              )}
               
               {/* Points to Money Card - Full Width */}
               <div className="mb-8">
-                <div className="bg-gradient-to-r from-orange-400 via-pink-500 to-red-500 rounded-2xl p-6 text-white transform hover:scale-105 transition-all duration-300 hover:shadow-2xl">
+                <div className="bg-gradient-to-br from-slate-900 via-blue-900 to-green-800 rounded-2xl p-6 text-white transform hover:scale-105 transition-all duration-300 hover:shadow-2xl">
                   <div className="flex items-center justify-center mb-3">
                     <Coins className="h-12 w-12" />
                   </div>
@@ -622,19 +729,18 @@ export default function AuthPage() {
                 </div>
               </div>
               
-              <p className="text-lg text-blue-100 font-medium">
-                {isLogin 
-                  ? "Ready to dive back into the action?" 
-                  : "Join athletes and sports fans worldwide"
-                }
-              </p>
+              {isLogin && (
+                <p className="text-lg text-blue-100 font-medium">
+                  Ready to dive back into the action?
+                </p>
+              )}
             </div>
           </div>
 
           {/* Right Side - Auth Forms */}
           <div className="w-1/2 max-w-lg flex items-center justify-center px-8 pr-12">
             <Card className="w-full shadow-2xl bg-white/95 backdrop-blur-sm border-0">
-              <CardContent className="p-8">
+              <CardContent className="p-10">
                 {/* Logo Above Form */}
                 <div className="text-center mb-6">
                   <h1 className="text-3xl font-bold" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
@@ -645,6 +751,16 @@ export default function AuthPage() {
                     {isLogin ? "Sign in to continue" : "Create your account"}
                   </p>
                 </div>
+
+                {/* Signup Text Above Form - Desktop Only */}
+                {!isLogin && (
+                  <div className="text-center mb-6">
+                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Signup to SportsApp</h2>
+                    <p className="text-gray-600 leading-relaxed">
+                      Join the ultimate sports community where athletes and fans connect, share, and grow together
+                    </p>
+                  </div>
+                )}
 
                 {isLogin ? (
                   /* Desktop Login Form */
@@ -685,7 +801,7 @@ export default function AuthPage() {
 
                     <Button
                       type="submit"
-                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 mt-4"
+                      className="w-full bg-gradient-to-br from-slate-900 via-blue-900 to-green-800 hover:from-slate-800 hover:via-blue-800 hover:to-green-700 text-white font-semibold py-3 mt-4"
                       disabled={loginMutation.isPending}
                     >
                       {loginMutation.isPending ? (
@@ -738,8 +854,15 @@ export default function AuthPage() {
                         {...signupForm.register("username", {
                           onChange: (e) => {
                             const value = e.target.value;
-                            if (value.length >= 3) {
-                              checkUsername(value);
+                            if (value.length > 0) {
+                              const formatError = validateUsernameFormat(value);
+                              if (formatError) {
+                                setUsernameCheck({ available: false, error: formatError });
+                              } else if (value.length >= 3) {
+                                checkUsername(value);
+                              } else {
+                                setUsernameCheck(null);
+                              }
                             } else {
                               setUsernameCheck(null);
                             }
@@ -762,9 +885,9 @@ export default function AuthPage() {
                         <div className="mt-2">
                           <div className="text-sm text-red-600 flex items-center">
                             <AlertCircle className="mr-1 h-4 w-4" />
-                            Username already taken
+                            {usernameCheck.error || "Username already taken"}
                           </div>
-                          {usernameCheck.suggestions && usernameCheck.suggestions.length > 0 && (
+                          {!usernameCheck.error && usernameCheck.suggestions && usernameCheck.suggestions.length > 0 && (
                             <div className="text-sm text-gray-600 mt-1">
                               Suggestions:{" "}
                               {usernameCheck.suggestions.map((suggestion, index) => (
@@ -958,7 +1081,7 @@ export default function AuthPage() {
 
                     <Button
                       type="submit"
-                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3"
+                      className="w-full bg-gradient-to-br from-slate-900 via-blue-900 to-green-800 hover:from-slate-800 hover:via-blue-800 hover:to-green-700 text-white font-semibold py-3"
                       disabled={registerMutation.isPending || !acceptTerms}
                     >
                       {registerMutation.isPending ? (

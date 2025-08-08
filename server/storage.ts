@@ -33,7 +33,7 @@ export interface IStorage {
   getUserProfile(userId: number): Promise<User | undefined>;
   checkUsernameAvailabilityForUpdate(username: string, currentUserId: number): Promise<{ available: boolean; suggestions?: string[] }>;
   getUserPosts(userId: number, currentUserId?: number): Promise<(Post & { user: User; comments: number; userHasPointed: boolean; mentions: User[]; tags: User[] })[]>;
-  searchUsers(query: string): Promise<User[]>;
+  searchUsers(query: string, currentUserId: number): Promise<User[]>;
   
   // Verification methods
   requestVerification(userId: number): Promise<void>;
@@ -97,7 +97,6 @@ export interface IStorage {
   createMessage(message: InsertMessage): Promise<Message>;
   deleteConversation(conversationId: number, userId: number): Promise<void>;
   markMessagesAsRead(conversationId: number, userId: number): Promise<void>;
-  searchUsers(query: string, currentUserId: number): Promise<User[]>;
   markConversationAsRead(conversationId: number, userId: number): Promise<void>;
   getUnreadConversationsCount(userId: number): Promise<number>;
   
@@ -171,6 +170,25 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
+  async checkUsernameAvailabilityForUpdate(username: string, currentUserId: number): Promise<{ available: boolean; suggestions?: string[] }> {
+    const existingUser = await this.getUserByUsername(username);
+    
+    if (!existingUser || existingUser.id === currentUserId) {
+      return { available: true };
+    }
+
+    // Generate suggestions by adding numbers or modifying the username
+    const suggestions: string[] = [];
+    for (let i = 1; i <= 3; i++) {
+      const suggestion = `${username}${i.toString().padStart(2, '0')}`;
+      const suggestionExists = await this.getUserByUsername(suggestion);
+      if (!suggestionExists) {
+        suggestions.push(suggestion);
+      }
+    }
+
+    return { available: false, suggestions };
+  }
 
   async getUserPosts(userId: number, currentUserId?: number): Promise<(Post & { user: User; comments: number; userHasPointed: boolean; mentions: User[]; tags: User[] })[]> {
     const postsData = await db
@@ -377,26 +395,7 @@ export class DatabaseStorage implements IStorage {
     return { available: false, suggestions: suggestions.slice(0, 2) };
   }
 
-  async checkUsernameAvailabilityForUpdate(username: string, currentUserId: number): Promise<{ available: boolean; suggestions?: string[] }> {
-    const existingUser = await this.getUserByUsername(username);
-    
-    // If no user found or it's the current user's username, it's available
-    if (!existingUser || existingUser.id === currentUserId) {
-      return { available: true };
-    }
 
-    // Generate suggestions
-    const suggestions: string[] = [];
-    for (let i = 1; i <= 2; i++) {
-      const suggestion = `${username}${i.toString().padStart(2, '0')}`;
-      const suggestionExists = await this.getUserByUsername(suggestion);
-      if (!suggestionExists) {
-        suggestions.push(suggestion);
-      }
-    }
-
-    return { available: false, suggestions: suggestions.slice(0, 2) };
-  }
 
   // Post methods
   async createPost(insertPost: InsertPost): Promise<Post> {
@@ -905,10 +904,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllUserDrillsForAdmin(filters?: { sport?: string; status?: string; username?: string }): Promise<(UserDrill & { user: User; drill: Drill })[]> {
-    let query = db.select().from(userDrills)
-      .innerJoin(users, eq(userDrills.userId, users.id))
-      .innerJoin(drills, eq(userDrills.drillId, drills.id));
-
     let whereConditions = [];
 
     // Always exclude not_submitted drills - only show submitted drills
@@ -924,9 +919,11 @@ export class DatabaseStorage implements IStorage {
       whereConditions.push(sql`${users.username} ILIKE ${'%' + filters.username + '%'}`);
     }
 
-    query = query.where(and(...whereConditions));
-
-    const results = await query.orderBy(desc(userDrills.submittedAt));
+    const results = await db.select().from(userDrills)
+      .innerJoin(users, eq(userDrills.userId, users.id))
+      .innerJoin(drills, eq(userDrills.drillId, drills.id))
+      .where(and(...whereConditions))
+      .orderBy(desc(userDrills.submittedAt));
     
     return results.map(row => ({
       ...row.user_drills,
@@ -1069,7 +1066,7 @@ export class DatabaseStorage implements IStorage {
 
     // Get last messages for each conversation
     const results = [];
-    for (const conv of conversationsMap.values()) {
+    for (const conv of Array.from(conversationsMap.values())) {
       const user1 = conv.users.find((u: User) => u.id === conv.user1Id);
       const user2 = conv.users.find((u: User) => u.id === conv.user2Id);
       
@@ -1332,7 +1329,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllTryoutApplications(status?: string): Promise<(TryoutApplication & { user: User; tryout: Tryout })[]> {
-    let query = db.select({
+    const baseQuery = db.select({
       application: tryoutApplications,
       user: users,
       tryout: tryouts,
@@ -1341,11 +1338,9 @@ export class DatabaseStorage implements IStorage {
     .innerJoin(users, eq(tryoutApplications.userId, users.id))
     .innerJoin(tryouts, eq(tryoutApplications.tryoutId, tryouts.id));
 
-    if (status) {
-      query = query.where(eq(tryoutApplications.status, status));
-    }
-
-    const result = await query.orderBy(desc(tryoutApplications.appliedAt));
+    const result = status
+      ? await baseQuery.where(eq(tryoutApplications.status, status)).orderBy(desc(tryoutApplications.appliedAt))
+      : await baseQuery.orderBy(desc(tryoutApplications.appliedAt));
 
     return result.map(row => ({ 
       ...row.application, 

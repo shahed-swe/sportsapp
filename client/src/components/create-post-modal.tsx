@@ -22,7 +22,7 @@ interface CreatePostModalProps {
 type PostType = "text" | "photo" | "video";
 
 export function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const [step, setStep] = useState<"type" | "create">("type");
   const [postType, setPostType] = useState<PostType>("text");
@@ -222,6 +222,28 @@ export function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
                   </CardContent>
                 </Card>
               ))}
+              
+              {/* Sports Content Disclaimer */}
+              <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <div className="flex items-start space-x-2">
+                  <div className="flex-shrink-0 mt-0.5">
+                    <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                      <span className="text-xs text-white font-bold">!</span>
+                    </div>
+                  </div>
+                  <div className="text-sm text-blue-800 dark:text-blue-200">
+                    {i18n.language === 'hi' ? (
+                      <p>
+                        कृपया सुनिश्चित करें कि केवल खेल से संबंधित सामग्री ही अपलोड की जाए। जो पोस्ट इससे मेल नहीं खाती, उन्हें हटाया जा सकता है। समझने के लिए धन्यवाद!
+                      </p>
+                    ) : (
+                      <p>
+                        Kindly ensure that only sports-related content is uploaded. Posts that do not align with this may be removed. Thank you for understanding!
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           ) : (
             <div className="space-y-6">

@@ -264,6 +264,13 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
+}).extend({
+  username: z.string()
+    .min(3, "Username must be at least 3 characters long")
+    .max(20, "Username cannot exceed 20 characters")
+    .regex(/^[a-zA-Z][a-zA-Z0-9_.]*$/, "Username format is invalid")
+    .refine((val) => !/\.\./.test(val), { message: "Username cannot have consecutive dots" })
+    .refine((val) => !/\.$/.test(val), { message: "Username cannot end with a dot" })
 });
 
 export const signupSchema = insertUserSchema.extend({
@@ -274,7 +281,11 @@ export const signupSchema = insertUserSchema.extend({
 });
 
 export const loginSchema = z.object({
-  username: z.string().min(1, "Username is required"),
+  username: z.string()
+    .min(1, "Username is required")
+    .regex(/^[a-zA-Z][a-zA-Z0-9_.]*$/, "Invalid username format")
+    .refine((val) => !/\.\./.test(val), { message: "Username cannot have consecutive dots" })
+    .refine((val) => !/\.$/.test(val), { message: "Username cannot end with a dot" }),
   password: z.string().min(1, "Password is required"),
   rememberMe: z.boolean().optional(),
 });

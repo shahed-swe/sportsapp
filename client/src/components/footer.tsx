@@ -24,12 +24,12 @@ export function Footer() {
 
   if (isMobile) {
     return (
-      <footer className="bg-gradient-to-br from-blue-600 via-blue-700 to-red-600 text-white mt-auto">
+      <footer className="bg-gradient-to-br from-slate-900 via-blue-900 to-green-800 text-white mt-auto">
         <div className="container mx-auto px-6 py-8">
           {/* Mobile Logo and Tagline */}
           <div className="text-center mb-6">
             <h2 className="text-3xl font-bold drop-shadow-lg" style={{ fontFamily: 'Inter, system-ui, sans-serif', letterSpacing: '0.5px' }}>
-              <span style={{ color: '#283E51' }}>SPORTS</span>
+              <span className="text-white">SPORTS</span>
               <span className="text-orange-600">APP</span>
             </h2>
             <p className="text-blue-100 text-sm mt-2 font-medium">
@@ -62,7 +62,7 @@ export function Footer() {
   }
 
   return (
-    <footer className="bg-gradient-to-r from-blue-600 via-purple-600 to-red-600 text-white mt-auto relative overflow-hidden">
+    <footer className="bg-gradient-to-br from-slate-900 via-blue-900 to-green-800 text-white mt-auto relative overflow-hidden">
       {/* Background Texture */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/5 to-transparent"></div>
@@ -76,7 +76,7 @@ export function Footer() {
           {/* Left Side - Logo and Tagline */}
           <div className="mb-8 md:mb-0">
             <h2 className="text-5xl font-bold drop-shadow-2xl mb-3" style={{ fontFamily: 'Inter, system-ui, sans-serif', letterSpacing: '1px' }}>
-              <span style={{ color: '#283E51' }}>SPORTS</span>
+              <span className="text-white">SPORTS</span>
               <span className="text-orange-600 drop-shadow-lg">APP</span>
             </h2>
             <p className="text-blue-100 text-lg font-semibold tracking-wide">

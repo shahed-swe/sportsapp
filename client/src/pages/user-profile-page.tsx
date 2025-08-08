@@ -63,7 +63,7 @@ export default function UserProfilePage() {
   const [editedProfile, setEditedProfile] = useState<Partial<UserProfile>>({});
   const [verificationDialogOpen, setVerificationDialogOpen] = useState(false);
   const [showRedeemHistory, setShowRedeemHistory] = useState(false);
-  const [usernameAvailability, setUsernameAvailability] = useState<{available: boolean; suggestions?: string[]}>({ available: true });
+  const [usernameAvailability, setUsernameAvailability] = useState<{available: boolean; suggestions?: string[]; error?: string}>({ available: true });
   const [profilePictureFile, setProfilePictureFile] = useState<File | null>(null);
   const [selectedPost, setSelectedPost] = useState<any>(null);
   const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
@@ -232,8 +232,8 @@ export default function UserProfilePage() {
   const handleEditSubmit = async () => {
     if (!usernameAvailability.available) {
       toast({
-        title: "Username not available",
-        description: "Please choose a different username.",
+        title: "Username validation error",
+        description: usernameAvailability.error || "Please choose a different username.",
         variant: "destructive",
       });
       return;
@@ -272,10 +272,60 @@ export default function UserProfilePage() {
     updateProfileMutation.mutate(profileData);
   };
 
+  // Validate username format with specific error messages
+  const validateUsername = (username: string) => {
+    if (username.length === 0) {
+      return { isValid: false, error: null };
+    }
+    
+    // Check if starts with letter
+    if (!/^[a-zA-Z]/.test(username)) {
+      return { isValid: false, error: "Username must start with a letter" };
+    }
+    
+    // Check for consecutive dots
+    if (/\.\./.test(username)) {
+      return { isValid: false, error: "Username cannot have consecutive dots" };
+    }
+    
+    // Check if ends with dot
+    if (/\.$/.test(username)) {
+      return { isValid: false, error: "Username cannot end with a dot" };
+    }
+    
+    // Check for invalid characters - allow letters, numbers, underscores, dots
+    if (!/^[a-zA-Z][a-zA-Z0-9_.]*$/.test(username)) {
+      return { isValid: false, error: "Username can only contain letters, numbers, underscores, and dots" };
+    }
+    
+    // Check the more complex pattern rules
+    // Must not have dot followed by nothing or dot at very end (already checked above)
+    // Must not have consecutive dots (already checked above)
+    // This leaves us with a valid username that follows our rules
+    
+    // Check length
+    if (username.length < 3) {
+      return { isValid: false, error: "Username must be at least 3 characters long" };
+    }
+    
+    if (username.length > 20) {
+      return { isValid: false, error: "Username cannot exceed 20 characters" };
+    }
+    
+    return { isValid: true, error: null };
+  };
+
   // Check username availability when it changes
   const checkUsernameAvailability = async (username: string) => {
     if (username === userProfile?.username) {
       setUsernameAvailability({ available: true });
+      return;
+    }
+
+    // First validate the format
+    const validation = validateUsername(username);
+    if (!validation.isValid) {
+      setUsernameAvailability({ available: false, error: validation.error });
       return;
     }
 
@@ -579,7 +629,10 @@ export default function UserProfilePage() {
               />
               {!usernameAvailability.available && (
                 <div className="text-sm text-red-600 mt-1">
-                  {t('profile.usernameNotAvailable')}: {usernameAvailability.suggestions?.join(', ')}
+                  {usernameAvailability.error ? 
+                    usernameAvailability.error : 
+                    `${t('profile.usernameNotAvailable')}: ${usernameAvailability.suggestions?.join(', ')}`
+                  }
                 </div>
               )}
             </div>
