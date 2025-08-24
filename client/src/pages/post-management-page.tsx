@@ -415,7 +415,6 @@ export default function PostManagementPage() {
                 <div>
                   <div className="flex items-center space-x-2">
                     <span className="font-semibold text-gray-900">{selectedPost.user.fullName}</span>
-                    <Badge variant="outline">{selectedPost.user.userType}</Badge>
                   </div>
                   <div className="flex items-center space-x-2 text-sm text-gray-500">
                     <span>@{selectedPost.user.username}</span>

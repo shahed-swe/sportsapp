@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
@@ -7,13 +7,14 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { CreatePostModal } from "@/components/create-post-modal";
-import { PostCard } from "@/components/post-card";
+import { OptimizedPostCard } from "@/components/optimized-post-card";
 import { CommentModal } from "@/components/comment-modal";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { GradientButton } from "@/components/ui/gradient-button";
 import { Loader2, Plus } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { QUERY_CONFIGS } from "@/utils/performance";
 
 type PostType = "all" | "text" | "photo" | "video";
 
@@ -34,7 +35,7 @@ export default function FeedPage() {
   } = useQuery({
     queryKey: ["/api/posts", activeFilter],
     queryFn: () => apiRequest("GET", `/api/posts${activeFilter !== "all" ? `?type=${activeFilter}` : ""}`).then(res => res.json()),
-    refetchInterval: 5000, // Real-time updates every 5 seconds
+    ...QUERY_CONFIGS.frequent, // Optimized polling configuration
   });
 
   // Handle scrolling to specific post from notification
@@ -65,12 +66,14 @@ export default function FeedPage() {
     }
   }, [posts]);
 
+  // Memoized mutation handlers for better performance
   const givePointMutation = useMutation({
     mutationFn: async (postId: number) => {
       await apiRequest("POST", `/api/posts/${postId}/point`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      // Smart cache invalidation - only invalidate current filter
+      queryClient.invalidateQueries({ queryKey: ["/api/posts", activeFilter] });
       toast({
         title: "Success",
         description: "Point given successfully!",
@@ -111,11 +114,16 @@ export default function FeedPage() {
       await apiRequest("DELETE", `/api/posts/${postId}`);
     },
     onSuccess: () => {
-      // Invalidate all related queries for real-time updates
-      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/posts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/posts/stats"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/reported-posts"] });
+      // Batch invalidation for better performance
+      const queries = [
+        ["/api/posts"],
+        ["/api/admin/posts"],
+        ["/api/admin/posts/stats"],
+        ["/api/admin/reported-posts"]
+      ];
+      queries.forEach(queryKey => {
+        queryClient.invalidateQueries({ queryKey });
+      });
       toast({
         title: "Post deleted",
         description: "Your post has been deleted successfully.",
@@ -130,37 +138,39 @@ export default function FeedPage() {
     },
   });
 
-  const handleGivePoint = (postId: number) => {
+  // Memoized callback handlers to prevent re-renders
+  const handleGivePoint = useCallback((postId: number) => {
     givePointMutation.mutate(postId);
-  };
+  }, [givePointMutation]);
 
-  const handleReportPost = (postId: number) => {
+  const handleReportPost = useCallback((postId: number) => {
     if (confirm("Are you sure you want to report this post?")) {
       reportPostMutation.mutate({ postId, reason: "Inappropriate content" });
     }
-  };
+  }, [reportPostMutation]);
 
-  const handleDeletePost = (postId: number) => {
+  const handleDeletePost = useCallback((postId: number) => {
     if (confirm("Are you sure you want to delete this post?")) {
       deletePostMutation.mutate(postId);
     }
-  };
+  }, [deletePostMutation]);
 
   const handleCommentClick = (post: any) => {
     setSelectedPost(post);
     setIsCommentModalOpen(true);
   };
 
-  const handleUserClick = (userId: number) => {
+  const handleUserClick = useCallback((userId: number) => {
     setLocation(`/profile/${userId}`);
-  };
+  }, [setLocation]);
 
-  const filters = [
+  // Memoized filters to prevent re-renders
+  const filters = useMemo(() => [
     { id: "all" as PostType, label: t('feed.allPosts'), active: activeFilter === "all" },
     { id: "text" as PostType, label: t('feed.textPosts'), active: activeFilter === "text" },
     { id: "photo" as PostType, label: t('feed.photoPosts'), active: activeFilter === "photo" },
     { id: "video" as PostType, label: t('feed.videoPosts'), active: activeFilter === "video" },
-  ];
+  ], [t, activeFilter]);
 
   if (!user) return null;
 
@@ -194,25 +204,14 @@ export default function FeedPage() {
           </div>
 
           {/* Create Post Button */}
-          <Button
+          <GradientButton
             onClick={() => setIsCreateModalOpen(true)}
-            className="w-full text-white font-semibold shadow-lg transform transition-all duration-200 hover:scale-[1.02] hover:shadow-xl"
-            style={{
-              backgroundImage: 'linear-gradient(to right, #4B79A1 0%, #283E51 51%, #4B79A1 100%)',
-              backgroundSize: '200% auto',
-              transition: 'background-position 0.5s ease'
-            }}
+            className="w-full"
             size="lg"
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundPosition = 'right center';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundPosition = 'left center';
-            }}
           >
             <Plus className="h-5 w-5 mr-2" />
             {t('feed.createPost')}
-          </Button>
+          </GradientButton>
         </div>
 
         {/* Posts Feed */}
@@ -228,37 +227,23 @@ export default function FeedPage() {
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('feed.noPostsTitle')}</h3>
               <p className="text-gray-600 mb-4">{t('feed.noPostsDescription')}</p>
-              <Button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="text-white font-semibold shadow-lg transform transition-all duration-200 hover:scale-[1.02]"
-                style={{
-                  backgroundImage: 'linear-gradient(to right, #4B79A1 0%, #283E51 51%, #4B79A1 100%)',
-                  backgroundSize: '200% auto',
-                  transition: 'background-position 0.5s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundPosition = 'right center';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundPosition = 'left center';
-                }}
-              >
+              <GradientButton onClick={() => setIsCreateModalOpen(true)}>
                 {t('feed.createFirstPost')}
-              </Button>
+              </GradientButton>
             </div>
           </div>
         ) : (
           <div className="space-y-6">
             {posts.map((post: any) => (
-              <PostCard
+              <OptimizedPostCard
                 key={post.id}
                 post={post}
-                currentUser={user}
+                user={user}
                 onGivePoint={handleGivePoint}
-                onComment={handleCommentClick}
-                onReport={handleReportPost}
-                onDelete={handleDeletePost}
-                onUserClick={handleUserClick}
+                onReportPost={handleReportPost}
+                onDeletePost={handleDeletePost}
+                onCommentClick={handleCommentClick}
+                onUsernameClick={handleUserClick}
               />
             ))}
           </div>

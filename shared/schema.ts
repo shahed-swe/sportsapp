@@ -7,7 +7,6 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   fullName: text("full_name").notNull(),
   username: text("username").notNull().unique(),
-  userType: text("user_type").notNull(), // "Sports Fan" or "Athlete"
   email: text("email").notNull().unique(),
   phone: text("phone").notNull().unique(),
   password: text("password").notNull(),
@@ -17,6 +16,14 @@ export const users = pgTable("users", {
   verificationStatus: text("verification_status").default("none"), // none, pending, verified, rejected
   verificationRequestDate: timestamp("verification_request_date"),
   points: integer("points").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const rememberTokens = pgTable("remember_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -275,6 +282,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
 
 export const signupSchema = insertUserSchema.extend({
   confirmPassword: z.string().min(1, "Please confirm your password"),
+  rememberMe: z.boolean().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -328,6 +336,11 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
   createdAt: true,
 });
 
+export const insertRememberTokenSchema = createInsertSchema(rememberTokens).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -361,6 +374,9 @@ export type InsertVoucherRedemption = z.infer<typeof insertVoucherRedemptionSche
 
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+
+export type RememberToken = typeof rememberTokens.$inferSelect;
+export type InsertRememberToken = z.infer<typeof insertRememberTokenSchema>;
 
 // Drill schemas
 export const insertDrillSchema = createInsertSchema(drills).omit({

@@ -39,7 +39,6 @@ interface UserProfile {
   id: number;
   fullName: string;
   username: string;
-  userType: string;
   email: string;
   bio?: string;
   profilePicture?: string;
@@ -72,7 +71,7 @@ export default function UserProfilePage() {
   const targetUserId = userId || currentUser?.id;
   const isOwnProfile = targetUserId === currentUser?.id;
 
-  // Fetch user profile data with real-time updates for points
+  // Fetch user profile data with optimized polling
   const { data: userProfile, isLoading: profileLoading } = useQuery<UserProfile>({
     queryKey: ["/api/users/profile", targetUserId],
     queryFn: async () => {
@@ -80,11 +79,12 @@ export default function UserProfilePage() {
       return await response.json();
     },
     enabled: !!targetUserId,
-    refetchInterval: 2000, // Auto-refresh every 2 seconds for real-time points updates
+    refetchInterval: () => document.hidden ? 30000 : 15000, // Smart polling
     refetchOnWindowFocus: true,
+    staleTime: 10000, // 10 seconds stale time
   });
 
-  // Fetch user's redemption history with real-time optimizations
+  // Fetch user's redemption history with static data optimization
   const { data: redemptionHistory = [] } = useQuery({
     queryKey: ["/api/users", targetUserId, "redemptions"],
     queryFn: async () => {
@@ -92,10 +92,10 @@ export default function UserProfilePage() {
       return await response.json();
     },
     enabled: !!targetUserId && isOwnProfile,
-    staleTime: 10000, // Consider data fresh for 10 seconds
-    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
-    refetchOnWindowFocus: true,
-    refetchInterval: 30000, // Auto-refetch every 30 seconds for real-time updates
+    staleTime: 5 * 60 * 1000, // 5 minutes stale time for static data
+    cacheTime: 10 * 60 * 1000, // 10 minutes cache time
+    refetchOnWindowFocus: false, // Don't refetch on focus for historical data
+    refetchInterval: false, // No polling for static data
   });
 
   // Fetch user's posts with real-time updates
@@ -498,7 +498,6 @@ export default function UserProfilePage() {
                   </div>
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-gray-600">@{userProfile.username}</span>
-                    <Badge variant="secondary">{userProfile.userType}</Badge>
                   </div>
                   <p className="text-gray-600">
                     {userProfile.bio || "No bio added"}

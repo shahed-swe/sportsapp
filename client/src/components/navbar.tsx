@@ -57,17 +57,19 @@ export function Navbar() {
     enabled: !!user?.id,
   });
 
-  // Fetch unread notification count
+  // Fetch unread notification count with optimized polling
   const { data: unreadCount = { count: 0 } } = useQuery({
     queryKey: ["/api/notifications/unread-count"],
-    refetchInterval: 30000, // Poll every 30 seconds for real-time updates
+    refetchInterval: () => document.hidden ? 60000 : 30000, // Smart polling based on visibility
+    staleTime: 15000, // 15 seconds stale time
   }) as { data: { count: number } };
 
-  // Fetch unread conversations count
+  // Fetch unread conversations count with optimized polling
   const { data: unreadMessagesCount = { count: 0 } } = useQuery({
     queryKey: ["/api/conversations/unread-count"],
-    refetchInterval: 10000, // Poll every 10 seconds for real-time updates
+    refetchInterval: () => document.hidden ? 30000 : 15000, // Smart polling based on visibility
     enabled: !!user?.id,
+    staleTime: 10000, // 10 seconds stale time
   }) as { data: { count: number } };
 
   const handleNavClick = (path: string) => {
@@ -75,11 +77,7 @@ export function Navbar() {
   };
 
   const handleLogout = () => {
-    logoutMutation.mutate(undefined, {
-      onSuccess: () => {
-        setLocation("/auth");
-      },
-    });
+    logoutMutation.mutate();
   };
 
   const navItems = [

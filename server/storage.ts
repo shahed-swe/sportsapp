@@ -1,5 +1,5 @@
 import { 
-  users, posts, comments, postPoints, mentions, tags, reportedPosts, voucherRedemptions, notifications, drills, userDrills, conversations, messages, tryouts, tryoutApplications, cricketAnalysis,
+  users, posts, comments, postPoints, mentions, tags, reportedPosts, voucherRedemptions, notifications, drills, userDrills, conversations, messages, tryouts, tryoutApplications, cricketAnalysis, rememberTokens,
   type User, type InsertUser, type Post, type InsertPost, 
   type Comment, type InsertComment, type PostPoint, type InsertPostPoint,
   type Mention, type InsertMention, type Tag, type InsertTag,
@@ -9,7 +9,8 @@ import {
   type Drill, type InsertDrill, type UserDrill, type InsertUserDrill,
   type Conversation, type InsertConversation, type Message, type InsertMessage,
   type Tryout, type InsertTryout, type TryoutApplication, type InsertTryoutApplication,
-  type CricketAnalysis, type InsertCricketAnalysis
+  type CricketAnalysis, type InsertCricketAnalysis,
+  type RememberToken, type InsertRememberToken
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, or, count, ilike, ne } from "drizzle-orm";
@@ -42,7 +43,7 @@ export interface IStorage {
   rejectVerification(userId: number): Promise<void>;
   
   // Voucher methods
-  redeemVoucher(userId: number, email: string, pointsRedeemed: number, voucherAmount: number): Promise<VoucherRedemption>;
+  redeemMoney(userId: number, email: string, pointsRedeemed: number, moneyAmount: number): Promise<VoucherRedemption>;
   getUserRedemptions(userId: number): Promise<VoucherRedemption[]>;
   getAllRedemptions(): Promise<(VoucherRedemption & { user: User })[]>;
   updateRedemptionStatus(redemptionId: number, status: string): Promise<void>;
@@ -114,6 +115,12 @@ export interface IStorage {
   // Cricket Coaching methods
   createCricketAnalysis(analysis: InsertCricketAnalysis): Promise<CricketAnalysis>;
   getUserCricketAnalyses(userId: number): Promise<CricketAnalysis[]>;
+
+  // Remember Token methods
+  createRememberToken(userId: number, token: string, expiresAt: Date): Promise<RememberToken>;
+  getRememberToken(token: string): Promise<RememberToken | undefined>;
+  deleteRememberToken(token: string): Promise<void>;
+  deleteUserRememberTokens(userId: number): Promise<void>;
   
   sessionStore: any;
 }
@@ -272,14 +279,14 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId));
   }
 
-  async redeemVoucher(userId: number, email: string, pointsRedeemed: number, voucherAmount: number): Promise<VoucherRedemption> {
+  async redeemMoney(userId: number, email: string, pointsRedeemed: number, moneyAmount: number): Promise<VoucherRedemption> {
     const [redemption] = await db
       .insert(voucherRedemptions)
       .values({
         userId,
         email,
         pointsRedeemed,
-        voucherAmount,
+        voucherAmount: moneyAmount,
         status: "under review",
       })
       .returning();
@@ -1391,6 +1398,35 @@ export class DatabaseStorage implements IStorage {
       .where(eq(cricketAnalysis.userId, userId))
       .orderBy(desc(cricketAnalysis.createdAt));
     return analyses;
+  }
+
+  // Remember Token methods implementation
+  async createRememberToken(userId: number, token: string, expiresAt: Date): Promise<RememberToken> {
+    const [rememberToken] = await db
+      .insert(rememberTokens)
+      .values({ userId, token, expiresAt })
+      .returning();
+    return rememberToken;
+  }
+
+  async getRememberToken(token: string): Promise<RememberToken | undefined> {
+    const [rememberToken] = await db
+      .select()
+      .from(rememberTokens)
+      .where(eq(rememberTokens.token, token));
+    return rememberToken || undefined;
+  }
+
+  async deleteRememberToken(token: string): Promise<void> {
+    await db
+      .delete(rememberTokens)
+      .where(eq(rememberTokens.token, token));
+  }
+
+  async deleteUserRememberTokens(userId: number): Promise<void> {
+    await db
+      .delete(rememberTokens)
+      .where(eq(rememberTokens.userId, userId));
   }
 }
 

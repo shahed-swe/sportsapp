@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback, memo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useTranslation } from "react-i18next";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Target, Upload, Camera, Play, CheckCircle, XCircle, AlertTriangle, RefreshCw, ArrowLeft } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Pose, POSE_LANDMARKS } from "@mediapipe/pose";
+import { measurePerformance } from "@/utils/performance";
 
 type CoachingType = "batting" | "bowling";
 type AnalysisStage = "selection" | "instructions" | "upload" | "analyzing" | "results";
@@ -40,11 +41,22 @@ export default function CricketCoachingPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleTypeSelection = (type: CoachingType) => {
+  // Memoized handlers for better performance
+  const handleTypeSelection = useCallback((type: CoachingType) => {
     setSelectedType(type);
     setStage("instructions");
     setError(null);
-  };
+  }, []);
+
+  const handleReset = useCallback(() => {
+    setSelectedType(null);
+    setStage("selection");
+    setUploadedFile(null);
+    setUploadProgress(0);
+    setAnalysisResult(null);
+    setIsAnalyzing(false);
+    setError(null);
+  }, []);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -84,27 +96,29 @@ export default function CricketCoachingPage() {
     }
   }, [isAnalyzing, uploadProgress]);
 
-  const analyzeVideo = async (file: File) => {
+  const analyzeVideo = useCallback(async (file: File) => {
     setIsAnalyzing(true);
     setUploadProgress(1); // Start at 1%
     setError(null);
 
     try {
-      // Upload video file first
-      const formData = new FormData();
-      formData.append('video', file);
-      formData.append('type', selectedType!);
+      // Performance-measured video analysis
+      await measurePerformance('VideoAnalysis', async () => {
+        // Upload video file first
+        const formData = new FormData();
+        formData.append('video', file);
+        formData.append('type', selectedType!);
 
-      const uploadResponse = await fetch('/api/cricket-coaching/upload', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include'
-      });
+        const uploadResponse = await fetch('/api/cricket-coaching/upload', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include'
+        });
 
-      if (!uploadResponse.ok) {
-        const errorData = await uploadResponse.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to upload video');
-      }
+        if (!uploadResponse.ok) {
+          const errorData = await uploadResponse.json().catch(() => ({}));
+          throw new Error(errorData.message || 'Failed to upload video');
+        }
 
       const uploadResult = await uploadResponse.json();
 
@@ -136,6 +150,7 @@ export default function CricketCoachingPage() {
       
       setAnalysisResult(analysis);
       setStage("results");
+      });
 
     } catch (error) {
       console.error('Analysis failed:', error);
@@ -143,7 +158,7 @@ export default function CricketCoachingPage() {
     } finally {
       setIsAnalyzing(false);
     }
-  };
+  }, [selectedType]);
 
   const resetAnalysis = () => {
     setSelectedType(null);
@@ -493,7 +508,7 @@ export default function CricketCoachingPage() {
                 border: 'none'
               }}
             >
-              {t('cricketCoaching.analysis.scoreOutOf100', { score: analysisResult.score })}
+              Score: {analysisResult.score}/100
             </Badge>
           )}
         </div>
@@ -528,7 +543,7 @@ export default function CricketCoachingPage() {
                       border: 'none'
                     }}
                   >
-                    {t('cricketCoaching.analysis.scoreOutOf100', { score: analysisResult.score })}
+                    Score: {analysisResult.score}/100
                   </Badge>
                 )}
               </div>
@@ -560,7 +575,7 @@ export default function CricketCoachingPage() {
                         : '#DC2626'
                     }}
                   >
-                    {analysisResult.score}%
+                    Score: {analysisResult.score}
                   </span>
                 </div>
               </div>

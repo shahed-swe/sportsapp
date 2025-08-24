@@ -2,9 +2,43 @@ import { Navbar } from "@/components/navbar";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLocation } from "wouter";
 import { Users, BarChart3, FileText, Shield, Gift, Target, Trophy } from "lucide-react";
+import { memo, useCallback } from "react";
 
-export default function AdminPage() {
+// Memoized admin card component for better performance
+const AdminCard = memo(({ title, description, icon: Icon, color, onClick, disabled = false }: any) => (
+  <Card 
+    className={`shadow-sm border border-gray-200 transition-shadow cursor-pointer ${
+      disabled 
+        ? 'opacity-50 cursor-not-allowed' 
+        : 'hover:shadow-md'
+    }`}
+    onClick={disabled ? undefined : onClick}
+  >
+    <CardContent className="p-6">
+      <div className="flex items-center mb-4">
+        <div className={`h-12 w-12 ${disabled ? 'bg-gray-400' : color} rounded-lg flex items-center justify-center`}>
+          <Icon className="h-6 w-6 text-white" />
+        </div>
+        <div className="ml-4">
+          <h3 className={`text-lg font-semibold ${disabled ? 'text-gray-500' : 'text-gray-900'}`}>{title}</h3>
+          <p className={`text-sm ${disabled ? 'text-gray-400' : 'text-gray-600'}`}>{description}</p>
+        </div>
+      </div>
+      <div className={`text-2xl font-bold mb-2 ${disabled ? 'text-gray-400' : 'text-gray-600'}`}>---</div>
+      <p className={`text-sm ${disabled ? 'text-gray-400' : 'text-gray-500'}`}>
+        {disabled ? 'Coming soon' : 'Management panel'}
+      </p>
+    </CardContent>
+  </Card>
+));
+
+function AdminPage() {
   const [, setLocation] = useLocation();
+  
+  // Memoized navigation handlers
+  const handleNavigate = useCallback((path: string) => {
+    setLocation(path);
+  }, [setLocation]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -20,41 +54,22 @@ export default function AdminPage() {
         {/* Admin Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* User Management Card */}
-          <Card 
-            className="shadow-sm border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
-            onClick={() => setLocation("/user-management")}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-center mb-4">
-                <div className="h-12 w-12 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <Users className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-semibold text-gray-900">User Management</h3>
-                  <p className="text-sm text-gray-600">Manage registered users</p>
-                </div>
-              </div>
-              <div className="text-2xl font-bold text-blue-600 mb-2">---</div>
-              <p className="text-sm text-gray-500">Total registered users</p>
-            </CardContent>
-          </Card>
+          <AdminCard
+            title="User Management"
+            description="Manage registered users"
+            icon={Users}
+            color="bg-blue-600"
+            onClick={() => handleNavigate("/user-management")}
+          />
 
           {/* Analytics Card */}
-          <Card className="shadow-sm border border-gray-200 opacity-50 cursor-not-allowed">
-            <CardContent className="p-6">
-              <div className="flex items-center mb-4">
-                <div className="h-12 w-12 bg-gray-400 rounded-lg flex items-center justify-center">
-                  <BarChart3 className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-semibold text-gray-500">Analytics</h3>
-                  <p className="text-sm text-gray-400">Coming soon</p>
-                </div>
-              </div>
-              <div className="text-2xl font-bold text-gray-400 mb-2">---</div>
-              <p className="text-sm text-gray-400">Platform insights</p>
-            </CardContent>
-          </Card>
+          <AdminCard
+            title="Analytics"
+            description="Coming soon"
+            icon={BarChart3}
+            color="bg-gray-400"
+            disabled={true}
+          />
 
           {/* Post Management Card */}
           <Card 
@@ -160,3 +175,5 @@ export default function AdminPage() {
     </div>
   );
 }
+
+export default AdminPage;

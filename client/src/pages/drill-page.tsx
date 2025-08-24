@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback, memo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/use-auth";
@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Upload, Play, Check, X, AlertTriangle } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { QUERY_CONFIGS } from "@/utils/performance";
 
 const SPORTS = ["Cricket", "Football", "Hockey", "Badminton", "Kabaddi", "Athletics", "Tennis"];
 
@@ -59,19 +60,11 @@ export default function DrillPage() {
     queryKey: ["/api/drills", selectedSport],
     queryFn: () => selectedSport ? apiRequest("GET", `/api/drills/${selectedSport}`).then(res => res.json()) : Promise.resolve([]),
     enabled: !!selectedSport,
-    refetchInterval: 2000, // Auto-refresh every 2 seconds for real-time status updates
+    refetchInterval: () => document.hidden ? 30000 : 15000, // Smart polling based on visibility
+    staleTime: 10000, // 10 seconds stale time
   });
 
-  // Auto-refresh when drill status changes are made by admin
-  useEffect(() => {
-    if (selectedSport) {
-      const interval = setInterval(() => {
-        refetchDrills();
-      }, 2000);
-      return () => clearInterval(interval);
-    }
-  }, [selectedSport, refetchDrills]);
-
+  // Memoized mutation handlers for better performance
   const uploadVideoMutation = useMutation({
     mutationFn: async ({ drillId, file }: { drillId: number; file: File }) => {
       const formData = new FormData();
@@ -84,6 +77,7 @@ export default function DrillPage() {
       return response.json();
     },
     onSuccess: () => {
+      // Smart cache invalidation - only invalidate specific sport
       queryClient.invalidateQueries({ queryKey: ["/api/drills", selectedSport] });
       setUploadingDrillId(null);
       toast({

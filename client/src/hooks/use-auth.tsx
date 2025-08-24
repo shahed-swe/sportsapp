@@ -7,6 +7,7 @@ import {
 import { insertUserSchema, User as SelectUser, InsertUser } from "@shared/schema";
 import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 type AuthContextType = {
   user: SelectUser | null;
@@ -22,6 +23,7 @@ type LoginData = Pick<InsertUser, "username" | "password">;
 export const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const {
     data: user,
     error,
@@ -67,9 +69,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("POST", "/api/logout");
+      const res = await apiRequest("POST", "/api/logout");
+      return await res.json();
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
       // Clear user session
       queryClient.setQueryData(["/api/user"], null);
       // Clear admin session and flag
@@ -77,6 +80,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem("adminSession");
       // Clear all cache to ensure fresh state
       queryClient.clear();
+      // Always redirect to login page after logout
+      setLocation("/login");
     },
     onError: (error: Error) => {
       toast({

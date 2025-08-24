@@ -7,8 +7,11 @@ import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Users, Target, Trophy } from "lucide-react";
+import { memo, useCallback } from "react";
+import { LazyImage } from "@/components/lazy-image";
 
-export default function HomePage() {
+
+function HomePage() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
   const isMobile = useIsMobile();
@@ -28,6 +31,15 @@ export default function HomePage() {
     { number: "500+", description: t('home.impactStats.redemptions') },
     { number: "100+", description: t('home.impactStats.coachingUsers') },
   ];
+
+  // Memoized navigation handlers for better performance
+  const handleNavigate = useCallback((path: string) => {
+    setLocation(path);
+  }, [setLocation]);
+
+  const handleProfileClick = useCallback((userId: number) => {
+    setLocation(`/profile/${userId}`);
+  }, [setLocation]);
 
   if (!user) return null;
 
@@ -93,14 +105,14 @@ export default function HomePage() {
           {/* CTA Buttons */}
           <div className={`flex ${isMobile ? 'flex-col space-y-4' : 'flex-row space-x-6 justify-center'} mt-8`}>
             <Button
-              onClick={() => setLocation("/feed")}
+              onClick={() => handleNavigate("/feed")}
               size="lg"
               className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-4 px-8 rounded-lg shadow-lg transform transition-all duration-200 hover:scale-105 hover:shadow-xl"
             >
               {t('home.joinCommunity')}
             </Button>
             <Button
-              onClick={() => setLocation("/drills")}
+              onClick={() => handleNavigate("/drills")}
               size="lg"
               className="bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white font-semibold py-4 px-8 rounded-lg shadow-lg transform transition-all duration-200 hover:scale-105 hover:shadow-xl"
             >
@@ -173,7 +185,10 @@ export default function HomePage() {
         </div>
       </section>
 
+
       <Footer />
     </div>
   );
 }
+
+export default memo(HomePage);

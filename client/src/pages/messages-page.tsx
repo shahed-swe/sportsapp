@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -12,12 +12,12 @@ import { Search, ArrowLeft, MoreVertical, Send, MessageCircle } from "lucide-rea
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Navbar } from "@/components/navbar";
+import { QUERY_CONFIGS, debounce } from "@/utils/performance";
 
 interface User {
   id: number;
   fullName: string;
   username: string;
-  userType: string;
   profilePicture?: string;
 }
 
@@ -53,13 +53,13 @@ export default function MessagesPage() {
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Fetch user conversations
+  // Fetch user conversations with optimized polling
   const { data: conversations = [], refetch: refetchConversations } = useQuery({
     queryKey: ["/api/conversations"],
-    refetchInterval: 5000, // Poll every 5 seconds for real-time updates
+    ...QUERY_CONFIGS.realtime, // Smart polling configuration
   });
 
-  // Fetch messages for selected conversation
+  // Fetch messages for selected conversation with optimized polling
   const { data: messages = [], refetch: refetchMessages } = useQuery({
     queryKey: ["/api/conversations", selectedConversation?.id, "messages"],
     queryFn: async () => {
@@ -68,10 +68,15 @@ export default function MessagesPage() {
       return await response.json();
     },
     enabled: !!selectedConversation,
-    refetchInterval: 2000, // Poll every 2 seconds for real-time messages
+    ...QUERY_CONFIGS.realtime, // Smart polling configuration
   });
 
-  // Search users
+  // Debounced search to reduce API calls
+  const debouncedSearchQuery = useMemo(() => debounce((query: string) => {
+    setSearchQuery(query);
+  }, 300), []);
+
+  // Search users with debounced query
   const { data: searchResults = [] } = useQuery({
     queryKey: ["/api/users/search", searchQuery],
     queryFn: async () => {
@@ -80,6 +85,7 @@ export default function MessagesPage() {
       return await response.json();
     },
     enabled: searchQuery.length >= 2,
+    ...QUERY_CONFIGS.static, // Static configuration for search
   });
 
   // Send message mutation

@@ -4,6 +4,9 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { LazyImage } from "@/components/lazy-image";
+import { ProgressiveLazyImage } from "@/components/progressive-lazy-image";
+import { SmartVideo } from "@/components/smart-video";
 import { 
   Heart, 
   MessageCircle, 
@@ -55,11 +58,20 @@ export function PostCard({
               onClick={() => onUserClick?.(post.user.id)}
             >
               {post.user.profilePicture ? (
-                <AvatarImage src={post.user.profilePicture} alt={post.user.fullName} />
-              ) : null}
-              <AvatarFallback>
-                {post.user.fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
-              </AvatarFallback>
+                <ProgressiveLazyImage 
+                  src={post.user.profilePicture} 
+                  alt={post.user.fullName}
+                  className="w-full h-full rounded-full object-cover"
+                  width={40}
+                  height={40}
+                  quality={90}
+                  priority={true}
+                />
+              ) : (
+                <AvatarFallback>
+                  {post.user.fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
+                </AvatarFallback>
+              )}
             </Avatar>
             <div>
               <div className="flex items-center space-x-2">
@@ -72,9 +84,6 @@ export function PostCard({
                 {post.user.isVerified && (
                   <CheckCircle className="h-4 w-4 text-blue-600" />
                 )}
-                <Badge variant="outline" className="text-xs">
-                  {post.user.userType}
-                </Badge>
               </div>
               <div className="flex items-center space-x-2 text-sm text-gray-500">
                 <span 
@@ -145,16 +154,22 @@ export function PostCard({
         {post.mediaUrl && (
           <div className="rounded-lg overflow-hidden relative">
             {post.mediaType?.startsWith('image/') ? (
-              <img
+              <ProgressiveLazyImage
                 src={post.mediaUrl}
                 alt="Post media"
-                className="w-full max-h-96 object-cover"
+                className="w-full max-h-96 object-cover rounded-lg"
+                sizes="(max-width: 768px) 100vw, 800px"
+                width={800}
+                height={384}
+                quality={85}
               />
             ) : post.mediaType?.startsWith('video/') ? (
-              <video
+              <SmartVideo
                 src={post.mediaUrl}
                 controls
                 className="w-full max-h-96 object-cover"
+                autoplayThreshold={0.5}
+                rootMargin="0px"
               />
             ) : null}
             

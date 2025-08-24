@@ -34,7 +34,7 @@ interface UserProfile {
 interface RedemptionHistory {
   id: number;
   pointsRedeemed: number;
-  voucherAmount: number;
+  moneyAmount: number;
   status: string;
   email: string;
   createdAt: string;
@@ -85,10 +85,10 @@ export default function RedeemPointsPage() {
   const pointsNeeded = MIN_POINTS_REQUIRED - currentPoints;
   const redeemableAmount = calculateRedeemableAmount(currentPoints);
 
-  // Redeem voucher mutation
-  const redeemVoucherMutation = useMutation({
+  // Redeem money mutation
+  const redeemMoneyMutation = useMutation({
     mutationFn: async (emailAddress: string) => {
-      const response = await apiRequest("POST", `/api/users/${user?.id}/redeem-voucher`, {
+      const response = await apiRequest("POST", `/api/users/${user?.id}/redeem-money`, {
         pointsRedeemed: currentPoints,
         email: emailAddress,
       });
@@ -146,7 +146,7 @@ export default function RedeemPointsPage() {
       });
       return;
     }
-    redeemVoucherMutation.mutate(email);
+    redeemMoneyMutation.mutate(email);
   };
 
   if (profileLoading) {
@@ -256,7 +256,7 @@ export default function RedeemPointsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Gift className="h-5 w-5" />
-                {t('redeem.redeemVoucher')}
+                {t('redeem.redeemMoney')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -304,10 +304,10 @@ export default function RedeemPointsPage() {
                   <div className="flex gap-2">
                     <Button
                       onClick={handleSubmitRedemption}
-                      disabled={redeemVoucherMutation.isPending}
+                      disabled={redeemMoneyMutation.isPending}
                       className="flex-1 bg-green-600 hover:bg-green-700"
                     >
-                      {redeemVoucherMutation.isPending ? (
+                      {redeemMoneyMutation.isPending ? (
                         <>
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                           {t('common.submit')}...
@@ -322,7 +322,7 @@ export default function RedeemPointsPage() {
                     <Button
                       onClick={() => setShowEmailForm(false)}
                       variant="outline"
-                      disabled={redeemVoucherMutation.isPending}
+                      disabled={redeemMoneyMutation.isPending}
                     >
                       {t('common.cancel')}
                     </Button>
@@ -331,14 +331,14 @@ export default function RedeemPointsPage() {
               ) : (
                 <Button
                   onClick={handleRedeem}
-                  disabled={!canRedeem || redeemVoucherMutation.isPending}
+                  disabled={!canRedeem || redeemMoneyMutation.isPending}
                   className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-300"
                   size="lg"
                 >
-                  {redeemVoucherMutation.isPending ? (
+                  {redeemMoneyMutation.isPending ? (
                     t('common.loading')
                   ) : canRedeem ? (
-                    `${t('redeem.redeemVoucher')} ₹${redeemableAmount}`
+                    `${t('redeem.redeemMoney')} ₹${redeemableAmount}`
                   ) : (
                     t('redeem.needMorePointsMessage', { count: pointsNeeded })
                   )}

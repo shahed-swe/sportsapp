@@ -5,10 +5,10 @@ import { Redirect, Route } from "wouter";
 
 export function AdminProtectedRoute({
   path,
-  component: Component,
+  children,
 }: {
   path: string;
-  component: () => React.JSX.Element;
+  children: React.ReactNode;
 }) {
   const { isAdmin, isLoading } = useAdminAuth();
   
@@ -68,7 +68,7 @@ export function AdminProtectedRoute({
 
   return (
     <Route path={path}>
-      <Component />
+      {children}
     </Route>
   );
 }

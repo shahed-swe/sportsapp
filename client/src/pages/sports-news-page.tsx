@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCw, ExternalLink, Globe, Calendar, AlertCircle } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { format } from "date-fns";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+import { QUERY_CONFIGS } from "@/utils/performance";
+import { LazyImage } from "@/components/lazy-image";
 
 interface NewsArticle {
   title: string;
@@ -135,8 +137,7 @@ export default function SportsNewsPage() {
       }
       return response.json();
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes (fresh data)
-    refetchInterval: currentPage === 1 ? 60 * 60 * 1000 : undefined, // Auto-refresh every hour for first page
+    ...QUERY_CONFIGS.frequent, // Use optimized configuration
     retry: 3
   });
 

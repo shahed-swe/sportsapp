@@ -48,10 +48,6 @@ export function UserViewModal({ user, isOpen, onClose }: UserViewModalProps) {
             <p className="mt-1 text-sm text-gray-900">{user.phone}</p>
           </div>
           
-          <div>
-            <Label className="text-sm font-medium text-gray-700">User Type</Label>
-            <p className="mt-1 text-sm text-gray-900">{user.userType}</p>
-          </div>
           
           <div>
             <Label className="text-sm font-medium text-gray-700">Date Joined</Label>

@@ -26,7 +26,6 @@ interface VerificationRequest {
   verificationStatus: string;
   verificationRequestDate: string;
   postsCount: number;
-  userType: string;
 }
 
 export default function VerificationManagementPage() {
@@ -177,7 +176,6 @@ export default function VerificationManagementPage() {
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <h3 className="font-semibold text-gray-900">{request.fullName}</h3>
-                        <Badge variant="outline">{request.userType}</Badge>
                       </div>
                       <div className="flex items-center gap-4 text-sm text-gray-600">
                         <div className="flex items-center gap-1">

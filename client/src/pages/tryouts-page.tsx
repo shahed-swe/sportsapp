@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, memo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { apiRequest } from "@/lib/queryClient";
@@ -19,6 +19,7 @@ import { CalendarDays, Clock, MapPin, Users, Upload, CheckCircle, XCircle, Clock
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { QUERY_CONFIGS } from "@/utils/performance";
 
 interface Tryout {
   id: number;
@@ -70,12 +71,11 @@ export default function TryoutsPage() {
     queryKey: ["/api/tryouts"],
   });
 
-  // Fetch user applications with real-time polling
+  // Fetch user applications with optimized polling
   const { data: userApplications = [], refetch: refetchApplications } = useQuery({
     queryKey: ["/api/user/tryout-applications"],
     enabled: !!user?.id,
-    refetchInterval: 2000, // Poll every 2 seconds for real-time updates
-    refetchIntervalInBackground: true, // Continue polling even when tab is not active
+    ...QUERY_CONFIGS.frequent, // Use optimized frequent data configuration
   });
 
   // Apply for tryout mutation

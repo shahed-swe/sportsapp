@@ -29,12 +29,23 @@ async function comparePasswords(supplied: string, stored: string) {
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
+// Generate secure remember token
+function generateRememberToken(): string {
+  return randomBytes(32).toString('hex');
+}
+
 export function setupAuth(app: Express) {
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET!,
     resave: false,
     saveUninitialized: false,
     store: storage.sessionStore,
+    cookie: {
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days - only expires on manual logout
+      secure: process.env.NODE_ENV === 'production', // Use HTTPS in production
+      httpOnly: true, // Prevent XSS attacks
+      sameSite: 'lax' // CSRF protection
+    },
   };
 
   app.set("trust proxy", 1);
@@ -92,9 +103,21 @@ export function setupAuth(app: Express) {
         password: await hashPassword(req.body.password),
       });
 
-      req.login(user, (err) => {
+      req.login(user, async (err) => {
         if (err) return next(err);
-        res.status(201).json(user);
+        
+        // Generate remember token if requested
+        let userWithToken = { ...user } as any;
+        if (req.body.rememberMe) {
+          const token = generateRememberToken();
+          const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+          
+          // Create remember token
+          await storage.createRememberToken(user.id, token, expiresAt);
+          userWithToken.rememberToken = token;
+        }
+        
+        res.status(201).json(userWithToken);
       });
     } catch (error) {
       console.error("Registration error:", error);
@@ -102,8 +125,32 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/login", passport.authenticate("local"), (req, res) => {
-    res.status(200).json(req.user);
+  app.post("/api/login", passport.authenticate("local"), async (req, res) => {
+    try {
+      const { rememberMe } = req.body;
+      let rememberToken = null;
+
+      // Generate remember token if requested
+      if (rememberMe && req.user) {
+        const token = generateRememberToken();
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+        
+        // Clean up old tokens for this user
+        await storage.deleteUserRememberTokens(req.user.id);
+        
+        // Create new remember token
+        await storage.createRememberToken(req.user.id, token, expiresAt);
+        rememberToken = token;
+      }
+
+      res.status(200).json({ 
+        ...req.user, 
+        rememberToken 
+      });
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(200).json(req.user);
+    }
   });
 
   app.post("/api/logout", (req, res, next) => {
@@ -111,8 +158,57 @@ export function setupAuth(app: Express) {
     clearAdminSession(req);
     req.logout((err) => {
       if (err) return next(err);
-      res.sendStatus(200);
+      // Destroy session completely
+      req.session.destroy((err) => {
+        if (err) return next(err);
+        res.clearCookie('connect.sid'); // Clear session cookie
+        res.status(200).json({ message: 'Logged out successfully', redirect: '/login' });
+      });
     });
+  });
+
+  // Quick login with remember token
+  app.post("/api/quick-login", async (req, res, next) => {
+    try {
+      const { rememberToken } = req.body;
+      
+      if (!rememberToken) {
+        return res.status(400).json({ message: "Remember token required" });
+      }
+
+      // Get token from database
+      const tokenData = await storage.getRememberToken(rememberToken);
+      
+      if (!tokenData) {
+        return res.status(401).json({ message: "Invalid or expired token" });
+      }
+
+      // Check if token is expired
+      if (new Date() > tokenData.expiresAt) {
+        // Clean up expired token
+        await storage.deleteRememberToken(rememberToken);
+        return res.status(401).json({ message: "Token expired" });
+      }
+
+      // Get user
+      const user = await storage.getUser(tokenData.userId);
+      if (!user) {
+        await storage.deleteRememberToken(rememberToken);
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Log user in
+      req.login(user, (err) => {
+        if (err) {
+          console.error('Quick login error:', err);
+          return res.status(500).json({ message: "Login failed" });
+        }
+        res.status(200).json(user);
+      });
+    } catch (error) {
+      console.error('Quick login error:', error);
+      res.status(500).json({ message: "Login failed" });
+    }
   });
 
   app.get("/api/user", (req, res) => {
