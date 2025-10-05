@@ -76,10 +76,77 @@ export function serveStatic(app: Express) {
     );
   }
 
-  app.use(express.static(distPath));
+  // PWA specific routes with proper headers
+  
+  // Service Worker - MUST NOT be cached
+  app.get('/sw.js', (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Service-Worker-Allowed', '/');
+    res.sendFile(path.resolve(distPath, 'sw.js'));
+  });
+
+  // Register SW (Vite PWA plugin file)
+  app.get('/registerSW.js', (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.sendFile(path.resolve(distPath, 'registerSW.js'));
+  });
+
+  // Workbox files
+  app.get('/workbox-*.js', (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.sendFile(path.resolve(distPath, req.path));
+  });
+
+  // Manifest files with proper MIME type
+  app.get('/manifest.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/manifest+json');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.sendFile(path.resolve(distPath, 'manifest.json'));
+  });
+
+  app.get('/manifest.webmanifest', (req, res) => {
+    res.setHeader('Content-Type', 'application/manifest+json');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.sendFile(path.resolve(distPath, 'manifest.webmanifest'));
+  });
+
+  // Icons with proper caching
+  app.use('/icons', (req, res, next) => {
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+    next();
+  }, express.static(path.resolve(distPath, 'icons')));
+
+  // Offline page
+  app.get('/offline.html', (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.sendFile(path.resolve(distPath, 'offline.html'));
+  });
+
+  // Static assets with proper caching
+  app.use('/assets', (req, res, next) => {
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    next();
+  }, express.static(path.resolve(distPath, 'assets')));
+
+  // Regular static files
+  app.use(express.static(distPath, {
+    setHeaders: (res, path) => {
+      // Don't cache HTML files
+      if (path.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      }
+    }
+  }));
 
   // fall through to index.html if the file doesn't exist
   app.use("*", (_req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }
