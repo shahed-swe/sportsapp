@@ -11,6 +11,9 @@ import "./i18n"; // Initialize i18next
 import { ProtectedRoute } from "./lib/protected-route";
 import { AdminProtectedRoute } from "./lib/admin-protected-route";
 import { AIChatWidget } from "@/components/ai-chat-widget";
+import PWAInstallPrompt from "@/components/PWAInstallPrompt";
+import PWAStatus from "@/components/PWAStatus";
+import PWAUpdateNotification from "@/components/PWAUpdateNotification";
 
 // Lazy-loaded components for optimal bundle splitting
 import {
@@ -156,6 +159,9 @@ function Router() {
         </Switch>
       </Suspense>
       {shouldShowAIChat && <AIChatWidget />}
+      <PWAInstallPrompt />
+      <PWAStatus />
+      <PWAUpdateNotification />
     </div>
   );
 }
