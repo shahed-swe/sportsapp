@@ -5,6 +5,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Project-specific files to ignore
+angad-project-*.json
+
 # Environment variables
 .env
 .env.local
